@@ -44,6 +44,8 @@ int main(int argc, char **argv)
     struct global_args g_args;
     unsigned int i;
 
+    char *env[] = {"LD_PRELOAD=../kvm_api/ksm_mm.so", NULL};
+
     g_args = parse_cmd_arguments(argc, argv);
 
     if (g_args.program_args == NULL)
@@ -62,9 +64,10 @@ int main(int argc, char **argv)
     if (running_program == 0) // child
     {
         printf("I am child, and my pid is: %d\n", getpid());
-        execv(g_args.program_args[0], g_args.program_args);
+        execve(g_args.program_args[0], g_args.program_args,
+               env);
         //TODO:Get LD_PRELOAD in
-        sleep(10);
+        /*sleep(10);*/
         /*printf("child is dying\n");*/
     }
     else if (running_program < 0) // failed to fork

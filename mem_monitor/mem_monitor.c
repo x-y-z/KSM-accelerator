@@ -23,6 +23,8 @@
 #include <string.h>
 #include <getopt.h>
 
+#include "stats_reader.h"
+
 struct global_args{
     int program_cpu_affinity;    /* -1: any cpu, 0-N: cpu id */
     int ksm_cpu_affinity;        /* -1: any cpu, 0-N: cpu id */
@@ -62,7 +64,7 @@ int main(int argc, char **argv)
         printf("I am child, and my pid is: %d\n", getpid());
         execv(g_args.program_args[0], g_args.program_args);
         //TODO:Get LD_PRELOAD in
-        /*sleep(10);*/
+        sleep(10);
         /*printf("child is dying\n");*/
     }
     else if (running_program < 0) // failed to fork
@@ -80,6 +82,19 @@ int main(int argc, char **argv)
         {
             printf("waiting...\n");
             //TODO: Read vmstat, VIRT, RES, ksm stats
+            unsigned long virt, rss;
+            struct ksm_stats one_stats;
+
+            get_virt_rss_kb(running_program, &virt, &rss);
+            one_stats = get_ksm_stats();
+            printf("Free mem:%ld, pid %d: VIRT %ldKB, RSS %ldKB\n",
+                   get_free_memory_kb(), running_program, virt, rss);
+            printf("KSM:\n full_scans:%ld\n pages_shared:%ld\n pages_sharing:%ld\n "
+                   "pages_unshared:%ld\n pages_volatile:%ld\n",
+                   one_stats.full_scans, one_stats.pages_shared,
+                   one_stats.pages_sharing, one_stats.pages_unshared,
+                   one_stats.pages_volatile);
+
             sleep(g_args.dump_frequency);
 
         }

@@ -106,6 +106,7 @@ struct ksm_stats get_ksm_stats()
 
     return res_stats;
 }
+/*
 int main()
 {
     int i;
@@ -126,3 +127,4 @@ int main()
     }
     return 0;
 }
+*/

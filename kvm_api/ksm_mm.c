@@ -16,6 +16,8 @@
 
 #define _GNU_SOURCE
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 
 /*#define _GNU_SOURCE*/
@@ -40,7 +42,52 @@ void *malloc(size_t size)
     void *p = NULL;
     /*fprintf(stderr, "malloc(%ld) = ", size);*/
     p = real_malloc(size);
-    madvise(p, size, MADV_MERGEABLE);
+    if (p != NULL)
+    {
+        madvise(p, size, MADV_MERGEABLE);
+    }
     /*fprintf(stderr, "%p\n", p);*/
     return p;
 }
+/*
+
+void *calloc(size_t num, size_t size)
+{
+    if(real_malloc==NULL) {
+        mtrace_init();
+    }
+
+    void *p = NULL;
+    p = real_malloc(num*size);
+    if (p != NULL)
+    {
+        memset(p, 0, num*size);
+        madvise(p, num*size, MADV_MERGEABLE);
+    }
+    return p;
+}
+
+*/
+/*
+void *realloc(void *ptr, size_t size)
+{
+    if(real_malloc==NULL) {
+        mtrace_init();
+    }
+
+    void *p = NULL;
+    p = real_malloc(size);
+    if (p != NULL)
+    {
+        madvise(p, size, MADV_MERGEABLE);
+
+        if (ptr != NULL)
+        {
+            memcpy(p, ptr, size);
+            free(ptr);
+        }
+    }
+
+    return p;
+}
+*/

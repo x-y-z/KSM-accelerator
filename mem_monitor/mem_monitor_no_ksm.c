@@ -46,7 +46,7 @@ int main(int argc, char **argv, char *envp[])
     struct global_args g_args;
     unsigned int i;
     FILE *log_file;
-    char *log_file_pattern = "mem_monitor_ksm.%d.log";
+    char *log_file_pattern = "mem_monitor_no_ksm.%d.log";
     char log_file_name[32];
     int log_file_num = 0;
 
@@ -80,8 +80,7 @@ int main(int argc, char **argv, char *envp[])
     if (running_program == 0) // child
     {
         printf("I am child, and my pid is: %d\n", getpid());
-        setenv("LD_PRELOAD", "/home/yanzi/projects/KSM-accelerator/kvm_api/ksm_mm.so", 1);
-        child_error = execvp(g_args.program_args[0], g_args.program_args);
+        child_error = execv(g_args.program_args[0], g_args.program_args);
         printf("execv error:%s\n", strerror(errno));
         //TODO:Get LD_PRELOAD in
         /*sleep(10);*/

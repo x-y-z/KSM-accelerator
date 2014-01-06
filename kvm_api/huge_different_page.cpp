@@ -58,6 +58,7 @@ int main()
     std::cout<<"Done\n";
 
     std::cin>>i;
+    std::cin>>i;
 
     delete (page);
 

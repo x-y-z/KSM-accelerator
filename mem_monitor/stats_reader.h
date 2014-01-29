@@ -22,7 +22,17 @@ struct ksm_stats{
     unsigned long full_scans;
 };
 
-unsigned long get_free_memory_kb();
+struct mem_info{
+    unsigned long total;
+    unsigned long free;
+    unsigned long buffered;
+    unsigned long cached;
+    unsigned long swap_cached;
+    unsigned long swap_total;
+    unsigned long swap_free;
+};
+
+struct mem_info get_free_memory_kb();
 void get_virt_rss_kb(pid_t pid, unsigned long *virt, unsigned long *rss);
 struct ksm_stats get_ksm_stats();
 

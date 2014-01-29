@@ -32,6 +32,7 @@ struct global_args{
     int ksm_cpu_affinity;        /* -1: any cpu, 0-N: cpu id */
     unsigned int dump_frequency; /* it is in second as a parameter of sleep */
     char **program_args;         /* running program and its arguments  */
+    unsigned int multiple_program_num; /* number of programs run simultaneously*/
 };
 
 struct global_args parse_cmd_arguments(int argc, char **argv);
@@ -42,6 +43,7 @@ int main(int argc, char **argv, char *envp[])
 
     pid_t running_program = -1;
     pid_t parent_program = getpid();
+    pid_t *children_program;
 
     struct global_args g_args;
     unsigned int i;
@@ -75,16 +77,35 @@ int main(int argc, char **argv, char *envp[])
         sprintf(log_file_name, log_file_pattern, log_file_num);
     }
 
-    running_program = fork();
+    children_program = (pid_t*)malloc(sizeof(pid_t)*g_args.multiple_program_num);
+    for (i = 0; i < g_args.multiple_program_num; ++i)
+    {
+        running_program = fork();
+        if (running_program == 0) // child
+        {
+            sleep(5);
+            printf("I am child, and my pid is: %d\n", getpid());
+            child_error = execv(g_args.program_args[0], g_args.program_args);
+            printf("execv error:%s\n", strerror(errno));
+            //TODO:Get LD_PRELOAD in
+            /*sleep(10);*/
+            /*printf("child is dying\n");*/
+        }
+        else if (running_program < 0) // failed to fork
+        {
+            fprintf(stderr, "Failed to fork!\n");
+            exit(1);
+        }
+        else
+        {
+            children_program[i] = running_program;
+        }
+    }
 
     if (running_program == 0) // child
     {
-        printf("I am child, and my pid is: %d\n", getpid());
-        child_error = execv(g_args.program_args[0], g_args.program_args);
-        printf("execv error:%s\n", strerror(errno));
-        //TODO:Get LD_PRELOAD in
-        /*sleep(10);*/
-        /*printf("child is dying\n");*/
+        printf("should not be here\n");
+        return 0;
     }
     else if (running_program < 0) // failed to fork
     {
@@ -98,20 +119,29 @@ int main(int argc, char **argv, char *envp[])
 
         int child_status = 0;
         log_file = fopen(log_file_name, "w");
-        fprintf(log_file, "Total free mem(KB), pid, VIRT(KB), RSS(KB), "
+        fprintf(log_file, "MemTotal(KB), MemFree(KB), Buffers(KB), Cached(KB), "
+                "SwapCached, SwapTotal, SwapFree, "
+                "pid, VIRT(KB), RSS(KB), "
                 "full scans, pages_shared, pages_sharing, "
                 "pages_unshared, pages_volatile\n");
-        while (!waitpid(running_program, &child_status, WNOHANG))
+        while (!waitpid(-1, &child_status, WNOHANG))
         {
             /*printf("waiting...\n");*/
             //TODO: Read vmstat, VIRT, RES, ksm stats
             unsigned long virt, rss;
             struct ksm_stats one_stats;
+            struct mem_info one_info;
 
             get_virt_rss_kb(running_program, &virt, &rss);
             one_stats = get_ksm_stats();
-            fprintf(log_file, "%ld, %d, %ld, %ld, ",
-                   get_free_memory_kb(), running_program, virt, rss);
+            one_info = get_free_memory_kb();
+
+            fprintf(log_file, "%ld, %ld, %ld, %ld, "
+                    "%d, %ld, %ld, "
+                    "%d, %ld, %ld, ",
+                    one_info.total, one_info.free, one_info.buffered, one_info.cached,
+                    one_info.swap_cached, one_info.swap_total, one_info.swap_free,
+                    running_program, virt, rss);
             fprintf(log_file, "%ld, %ld, %ld, %ld, %ld\n",
                    one_stats.full_scans, one_stats.pages_shared,
                    one_stats.pages_sharing, one_stats.pages_unshared,
@@ -120,6 +150,29 @@ int main(int argc, char **argv, char *envp[])
             sleep(g_args.dump_frequency);
 
         }
+        for (i = 0; i < 5; ++i)
+        {
+            sleep(1);
+            struct ksm_stats one_stats;
+            struct mem_info one_info;
+
+            one_stats = get_ksm_stats();
+            one_info = get_free_memory_kb();
+
+            fprintf(log_file, "%ld, %ld, %ld, %ld, "
+                    "%d, %ld, %ld, "
+                    "%d, %ld, %ld, ",
+                    one_info.total, one_info.free, one_info.buffered, one_info.cached,
+                    one_info.swap_cached, one_info.swap_total, one_info.swap_free,
+                    0, 0, 0);
+            fprintf(log_file, "%ld, %ld, %ld, %ld, %ld\n",
+                   one_stats.full_scans, one_stats.pages_shared,
+                   one_stats.pages_sharing, one_stats.pages_unshared,
+                   one_stats.pages_volatile);
+        }
+
+
+        free(children_program);
     }
     return 0;
 }
@@ -131,7 +184,8 @@ void printUsage()
            "    --program_cpu\t \n"
            "    --ksm_cpu\t \n"
            "    --sampling_rate\t \n"
-           "    --program\t \n");
+           "    --program\t \n"
+           "    --multiple\t \n");
 }
 
 struct global_args parse_cmd_arguments(int argc, char **argv)
@@ -141,16 +195,17 @@ struct global_args parse_cmd_arguments(int argc, char **argv)
         {"program_cpu", required_argument, 0, 'p'},
         {"ksm_cpu", required_argument, 0, 'k'},
         {"sampling_rate", required_argument, 0, 's'},
-        {"program", required_argument, 0, 'r'}
+        {"program", required_argument, 0, 'r'},
+        {"multiple", required_argument, 0, 'm'}
     };
-    struct global_args res_args = {0, 1, 1, NULL};
+    struct global_args res_args = {0, 1, 1, NULL, 1};
 
     int opt_idx = 0;
     int c;
     int input;
     char *pch;
     unsigned i, str_len, param_len = 0;
-    while ((c = getopt_long_only(argc, argv, "p:k:s:r:",
+    while ((c = getopt_long_only(argc, argv, "p:k:s:r:m:",
                                  long_options, &opt_idx)) != -1)
     {
         switch(c)
@@ -194,6 +249,9 @@ struct global_args parse_cmd_arguments(int argc, char **argv)
                     pch = strtok(NULL, " ");
                 }
                 res_args.program_args[i] = NULL;
+                break;
+            case 'm':
+                res_args.multiple_program_num = atoi(optarg)>0?atoi(optarg):1;
                 break;
             default:
                 printUsage();

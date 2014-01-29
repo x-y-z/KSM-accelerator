@@ -99,7 +99,9 @@ int main(int argc, char **argv, char *envp[])
 
         int child_status = 0;
         log_file = fopen(log_file_name, "w");
-        fprintf(log_file, "Total free mem(KB), pid, VIRT(KB), RSS(KB), "
+        fprintf(log_file, "MemTotal(KB), MemFree(KB), Buffers(KB), Cached(KB), "
+                "SwapCached, SwapTotal, SwapFree, "
+                "pid, VIRT(KB), RSS(KB), "
                 "full scans, pages_shared, pages_sharing, "
                 "pages_unshared, pages_volatile\n");
         while (!waitpid(running_program, &child_status, WNOHANG))
@@ -108,11 +110,18 @@ int main(int argc, char **argv, char *envp[])
             //TODO: Read vmstat, VIRT, RES, ksm stats
             unsigned long virt, rss;
             struct ksm_stats one_stats;
+            struct mem_info one_info;
 
             get_virt_rss_kb(running_program, &virt, &rss);
             one_stats = get_ksm_stats();
-            fprintf(log_file, "%ld, %d, %ld, %ld, ",
-                   get_free_memory_kb(), running_program, virt, rss);
+            one_info = get_free_memory_kb();
+
+            fprintf(log_file, "%ld, %ld, %ld, %ld, "
+                    "%d, %ld, %ld, "
+                    "%d, %ld, %ld, ",
+                    one_info.total, one_info.free, one_info.buffered, one_info.cached,
+                    one_info.swap_cached, one_info.swap_total, one_info.swap_free,
+                    running_program, virt, rss);
             fprintf(log_file, "%ld, %ld, %ld, %ld, %ld\n",
                    one_stats.full_scans, one_stats.pages_shared,
                    one_stats.pages_sharing, one_stats.pages_unshared,

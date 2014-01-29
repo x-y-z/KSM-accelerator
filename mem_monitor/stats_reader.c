@@ -23,24 +23,48 @@
 #include "stats_reader.h"
 #define BUFFER_SZ 256
 
-unsigned long get_free_memory_kb()
+struct mem_info get_free_memory_kb()
 {
     FILE *meminfo;
     int bytes_read;
     char line_buf[BUFFER_SZ];
-    unsigned long free_mem_kb = 0;
+    struct mem_info ret_mem_info = {1, 1, 1, 1, 1, 1};
 
     meminfo = fopen("/proc/meminfo", "r");
-    if (fgets(line_buf, BUFFER_SZ, meminfo) != NULL)
+    while (fgets(line_buf, BUFFER_SZ, meminfo) != NULL)
     {
-        if (fgets(line_buf, BUFFER_SZ, meminfo) != NULL)
+        if (strstr(line_buf, "MemTotal") != NULL)
         {
-            free_mem_kb = strtoul(&line_buf[9], NULL, 10);
+            ret_mem_info.total = strtoul(&line_buf[10], NULL, 10);
+        }
+        else if (strstr(line_buf, "MemFree") != NULL)
+        {
+            ret_mem_info.free = strtoul(&line_buf[9], NULL, 10);
+        }
+        else if (strstr(line_buf, "Buffers") != NULL)
+        {
+            ret_mem_info.buffered = strtoul(&line_buf[9], NULL, 10);
+        }
+        else if (strstr(line_buf, "SwapCached") != NULL)
+        {
+            ret_mem_info.swap_cached = strtoul(&line_buf[11], NULL, 10);
+        }
+        else if (strstr(line_buf, "Cached") != NULL)
+        {
+            ret_mem_info.cached = strtoul(&line_buf[8], NULL, 10);
+        }
+        else if (strstr(line_buf, "SwapTotal") != NULL)
+        {
+            ret_mem_info.swap_total = strtoul(&line_buf[10], NULL, 10);
+        }
+        else if (strstr(line_buf, "SwapFree") != NULL)
+        {
+            ret_mem_info.swap_free = strtoul(&line_buf[9], NULL, 10);
         }
     }
     fclose(meminfo);
 
-    return free_mem_kb;
+    return ret_mem_info;
 }
 
 void get_virt_rss_kb(pid_t pid, unsigned long *virt, unsigned long *rss)
